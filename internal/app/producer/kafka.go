@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"context"
 	"github.com/lgalkina/act-correction-api/internal/app/cleaner"
 	"github.com/lgalkina/act-correction-api/internal/app/updater"
 	"github.com/lgalkina/act-correction-api/internal/model"
@@ -14,7 +15,7 @@ import (
 )
 
 type Producer interface {
-	Start()
+	Start(ctx context.Context)
 	Close()
 }
 
@@ -31,7 +32,6 @@ type producer struct {
 	workerPool *workerpool.WorkerPool
 
 	wg   *sync.WaitGroup
-	done chan bool
 }
 
 func NewKafkaProducer(
@@ -44,7 +44,6 @@ func NewKafkaProducer(
 ) Producer {
 
 	wg := &sync.WaitGroup{}
-	done := make(chan bool)
 
 	return &producer{
 		n:          n,
@@ -52,13 +51,12 @@ func NewKafkaProducer(
 		events:     events,
 		workerPool: workerPool,
 		wg:         wg,
-		done:       done,
 		updater: updater,
 		cleaner: cleaner,
 	}
 }
 
-func (p *producer) Start() {
+func (p *producer) Start(ctx context.Context) {
 	for i := uint64(0); i < p.n; i++ {
 		p.wg.Add(1)
 		go func() {
@@ -81,7 +79,7 @@ func (p *producer) Start() {
 							}
 						})
 					}
-				case <-p.done:
+				case <- ctx.Done():
 					return
 				}
 			}
@@ -90,6 +88,5 @@ func (p *producer) Start() {
 }
 
 func (p *producer) Close() {
-	close(p.done)
 	p.wg.Wait()
 }

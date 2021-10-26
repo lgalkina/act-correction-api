@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/lgalkina/act-correction-api/internal/app/retranslator"
 	"os"
 	"os/signal"
@@ -21,9 +22,11 @@ func main() {
 	}
 
 	retranslator := retranslator.NewRetranslator(cfg)
-	retranslator.Start()
+
+	retranslator.Start(context.Background())
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigs
+	retranslator.Close()
 }

@@ -1,6 +1,7 @@
 package retranslator
 
 import (
+	"context"
 	"errors"
 	"github.com/lgalkina/act-correction-api/internal/model"
 	"testing"
@@ -20,7 +21,7 @@ func TestStart(t *testing.T) {
 	sender := mocks.NewMockEventSender(ctrl)
 
 	retranslator := NewRetranslator(createRetranslatorConfig(2, time.Second, repo, sender))
-	retranslator.Start()
+	retranslator.Start(context.Background())
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
 }
@@ -43,7 +44,7 @@ func TestProducerSendSuccess(t *testing.T) {
 	setEventsSend(int(consumeSize*2), sender, events,nil)
 	setEventsRemove(int(consumeSize*2), repo, events, nil)
 
-	retranslator.Start()
+	retranslator.Start(context.Background())
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
 }
@@ -65,7 +66,7 @@ func TestProducerSendRemoveError(t *testing.T) {
 	setEventsSend(int(consumeSize*2), sender, events,nil)
 	setEventsRemove(int(consumeSize*2), repo, events, errors.New("remove error"))
 
-	retranslator.Start()
+	retranslator.Start(context.Background())
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
 }
@@ -87,7 +88,7 @@ func TestProducerSendError(t *testing.T) {
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
 	setEventsUnlock(int(consumeSize*2), repo, events, nil)
 
-	retranslator.Start()
+	retranslator.Start(context.Background())
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
 }
@@ -109,7 +110,7 @@ func TestProducerSendUnlockError(t *testing.T) {
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
 	setEventsUnlock(int(consumeSize*2), repo, events, errors.New("unlock error"))
 
-	retranslator.Start()
+	retranslator.Start(context.Background())
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
 }
