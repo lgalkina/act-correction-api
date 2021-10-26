@@ -1,7 +1,7 @@
 package consumer
 
 import (
-	"github.com/lgalkina/act-correction-api/internal/model/activity"
+	"github.com/lgalkina/act-correction-api/internal/model"
 	"sync"
 	"time"
 
@@ -15,7 +15,7 @@ type Consumer interface {
 
 type consumer struct {
 	n      uint64
-	events chan<- activity.CorrectionEvent
+	events chan<- model.CorrectionEvent
 
 	repo repo.EventRepo
 
@@ -28,7 +28,7 @@ type consumer struct {
 
 type Config struct {
 	n         uint64
-	events    chan<- activity.CorrectionEvent
+	events    chan<- model.CorrectionEvent
 	repo      repo.EventRepo
 	batchSize uint64
 	timeout   time.Duration
@@ -39,7 +39,7 @@ func NewDbConsumer(
 	batchSize uint64,
 	consumeTimeout time.Duration,
 	repo repo.EventRepo,
-	events chan<- activity.CorrectionEvent) Consumer {
+	events chan<- model.CorrectionEvent) Consumer {
 
 	wg := &sync.WaitGroup{}
 	done := make(chan bool)

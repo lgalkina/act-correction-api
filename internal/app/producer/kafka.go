@@ -1,7 +1,10 @@
 package producer
 
 import (
-	"github.com/lgalkina/act-correction-api/internal/model/activity"
+	"github.com/lgalkina/act-correction-api/internal/app/cleaner"
+	"github.com/lgalkina/act-correction-api/internal/app/updater"
+	"github.com/lgalkina/act-correction-api/internal/model"
+	"log"
 	"sync"
 	"time"
 
@@ -20,7 +23,10 @@ type producer struct {
 	timeout time.Duration
 
 	sender sender.EventSender
-	events <-chan activity.CorrectionEvent
+	events <-chan model.CorrectionEvent
+
+	updater updater.Updater
+	cleaner cleaner.Cleaner
 
 	workerPool *workerpool.WorkerPool
 
@@ -31,8 +37,10 @@ type producer struct {
 func NewKafkaProducer(
 	n uint64,
 	sender sender.EventSender,
-	events <-chan activity.CorrectionEvent,
+	events <-chan model.CorrectionEvent,
 	workerPool *workerpool.WorkerPool,
+	updater updater.Updater,
+	cleaner cleaner.Cleaner,
 ) Producer {
 
 	wg := &sync.WaitGroup{}
@@ -45,6 +53,8 @@ func NewKafkaProducer(
 		workerPool: workerPool,
 		wg:         wg,
 		done:       done,
+		updater: updater,
+		cleaner: cleaner,
 	}
 }
 
@@ -57,9 +67,19 @@ func (p *producer) Start() {
 				select {
 				case event := <-p.events:
 					if err := p.sender.Send(&event); err != nil {
-						p.workerPool.Submit(func() {})
+						log.Printf("Error while sending event with ID = %d to Kafka: %v\n", event.ID, err)
+						p.workerPool.Submit(func() {
+							if err := p.updater.Update(event); err != nil {
+								log.Printf("Error while updating event with ID = %d: %v\n", event.ID, err)
+							}
+						})
 					} else {
-						p.workerPool.Submit(func() {})
+						log.Printf("Event with ID = %d was successfully sent to Kafka\n", event.ID)
+						p.workerPool.Submit(func() {
+							if err := p.cleaner.Clean(event); err != nil {
+								log.Printf("Error while cleaning event with ID = %d: %v\n", event.ID, err)
+							}
+						})
 					}
 				case <-p.done:
 					return

@@ -1,15 +1,16 @@
 package retranslator
 
 import (
+	"github.com/lgalkina/act-correction-api/internal/app/cleaner"
+	"github.com/lgalkina/act-correction-api/internal/app/updater"
+	"github.com/lgalkina/act-correction-api/internal/model"
 	"time"
 
+	"github.com/gammazero/workerpool"
 	"github.com/lgalkina/act-correction-api/internal/app/consumer"
 	"github.com/lgalkina/act-correction-api/internal/app/producer"
 	"github.com/lgalkina/act-correction-api/internal/app/repo"
 	"github.com/lgalkina/act-correction-api/internal/app/sender"
-	"github.com/lgalkina/act-correction-api/internal/model/activity"
-
-	"github.com/gammazero/workerpool"
 )
 
 type Retranslator interface {
@@ -32,15 +33,18 @@ type Config struct {
 }
 
 type retranslator struct {
-	events     chan activity.CorrectionEvent
+	events     chan model.CorrectionEvent
 	consumer   consumer.Consumer
 	producer   producer.Producer
 	workerPool *workerpool.WorkerPool
 }
 
 func NewRetranslator(cfg Config) Retranslator {
-	events := make(chan activity.CorrectionEvent, cfg.ChannelSize)
+	events := make(chan model.CorrectionEvent, cfg.ChannelSize)
 	workerPool := workerpool.New(cfg.WorkerCount)
+
+	updater := updater.NewDbUpdater(cfg.Repo)
+	cleaner := cleaner.NewDbCleaner(cfg.Repo)
 
 	consumer := consumer.NewDbConsumer(
 		cfg.ConsumerCount,
@@ -52,7 +56,9 @@ func NewRetranslator(cfg Config) Retranslator {
 		cfg.ProducerCount,
 		cfg.Sender,
 		events,
-		workerPool)
+		workerPool,
+		updater,
+		cleaner)
 
 	return &retranslator{
 		events:     events,
