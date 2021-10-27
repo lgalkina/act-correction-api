@@ -45,20 +45,20 @@ func NewRetranslator(cfg Config) Retranslator {
 	events := make(chan model.CorrectionEvent, cfg.ChannelSize)
 	workerPool := workerpool.New(cfg.WorkerCount)
 
-	updater := updater.NewDbUpdater(cfg.Repo)
-	cleaner := cleaner.NewDbCleaner(cfg.Repo)
-
 	consumer := consumer.NewDbConsumer(
 		cfg.ConsumerCount,
 		cfg.ConsumeSize,
 		cfg.ConsumeTimeout,
 		cfg.Repo,
 		events)
+
+	// one cleaner/updater for all producers, but actual clean/update in workerPool
+	updater := updater.NewDbUpdater(cfg.Repo, workerPool, cfg.ChannelSize)
+	cleaner := cleaner.NewDbCleaner(cfg.Repo, workerPool, cfg.ChannelSize)
 	producer := producer.NewKafkaProducer(
 		cfg.ProducerCount,
 		cfg.Sender,
 		events,
-		workerPool,
 		updater,
 		cleaner)
 

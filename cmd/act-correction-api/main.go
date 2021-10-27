@@ -23,7 +23,8 @@ func main() {
 
 	retranslator := retranslator.NewRetranslator(cfg)
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

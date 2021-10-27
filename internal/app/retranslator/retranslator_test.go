@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/lgalkina/act-correction-api/internal/model"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -42,11 +43,14 @@ func TestProducerSendSuccess(t *testing.T) {
 	// lock возвращает данные дважды
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events,nil)
-	setEventsRemove(int(consumeSize*2), repo, events, nil)
+	eventIDs := setEventsRemove(repo, events, nil)
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func TestProducerSendRemoveError(t *testing.T) {
@@ -64,11 +68,14 @@ func TestProducerSendRemoveError(t *testing.T) {
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events,nil)
-	setEventsRemove(int(consumeSize*2), repo, events, errors.New("remove error"))
+	eventIDs := setEventsRemove(repo, events, errors.New("remove error"))
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func TestProducerSendError(t *testing.T) {
@@ -86,11 +93,15 @@ func TestProducerSendError(t *testing.T) {
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
-	setEventsUnlock(int(consumeSize*2), repo, events, nil)
 
-	retranslator.Start(context.Background())
+	eventIDs := setEventsUnlock(repo, events, nil)
+
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func TestProducerSendUnlockError(t *testing.T) {
@@ -108,11 +119,14 @@ func TestProducerSendUnlockError(t *testing.T) {
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
-	setEventsUnlock(int(consumeSize*2), repo, events, errors.New("unlock error"))
+	eventIDs := setEventsUnlock(repo, events, errors.New("unlock error"))
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func setEventsLockOrder(consumeSize uint64, repo *mocks.MockEventRepo, events []model.CorrectionEvent) {
@@ -129,16 +143,30 @@ func setEventsSend(eventsNum int, sender *mocks.MockEventSender, events []model.
 	}
 }
 
-func setEventsRemove(eventsNum int, repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) {
-	for i := 0; i < eventsNum; i++ {
-		repo.EXPECT().Remove([]uint64{events[i].ID}).Return(error).Times(1)
+func setEventsRemove(repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) map[uint64]bool {
+	eventIDs := make(map[uint64]bool, len(events))
+	for _, event := range events {
+		eventIDs[event.ID] = true
 	}
+	repo.EXPECT().Remove(gomock.Any()).Do(func(ids []uint64) {
+		for _, id := range ids {
+			delete(eventIDs, id)
+		}
+	}).Return(error).AnyTimes()
+	return eventIDs
 }
 
-func setEventsUnlock(eventsNum int, repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) {
-	for i := 0; i < eventsNum; i++ {
-		repo.EXPECT().Unlock([]uint64{events[i].ID}).Return(error).Times(1)
+func setEventsUnlock(repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) map[uint64]bool {
+	eventIDs := make(map[uint64]bool, len(events))
+	for _, event := range events {
+		eventIDs[event.ID] = true
 	}
+	repo.EXPECT().Unlock(gomock.Any()).Do(func(ids []uint64) {
+		for _, id := range ids {
+			delete(eventIDs, id)
+		}
+	}).Return(error).AnyTimes()
+	return eventIDs
 }
 
 func createRetranslatorConfig(consumeSize uint64, consumeTimeout time.Duration,
@@ -160,42 +188,42 @@ func createEvents() []model.CorrectionEvent {
 		{
 			ID:     1,
 			Type:   model.Created,
-			Status: model.Processed,
+			Status: model.Deferred,
 			Entity: &model.Correction{ID: 1, Timestamp: time.Now(), UserID: 1, Object: "order1 description", Action: "update",
 				Data: &model.Data{OriginalData: "test11", RevisedData: "test12"}},
 		},
 		{
 			ID:     2,
 			Type:   model.Created,
-			Status: model.Processed,
+			Status: model.Deferred,
 			Entity: &model.Correction{ID: 2, Timestamp: time.Now(), UserID: 2, Object: "order2 description", Action: "update",
 				Data: &model.Data{OriginalData: "test21", RevisedData: "test22"}},
 		},
 		{
 			ID:     3,
 			Type:   model.Created,
-			Status: model.Processed,
+			Status: model.Deferred,
 			Entity: &model.Correction{ID: 3, Timestamp: time.Now(), UserID: 3, Object: "order3 description", Action: "update",
 				Data: &model.Data{OriginalData: "test31", RevisedData: "test32"}},
 		},
 		{
 			ID:     4,
 			Type:   model.Created,
-			Status: model.Processed,
+			Status: model.Deferred,
 			Entity: &model.Correction{ID: 4, Timestamp: time.Now(), UserID: 4, Object: "order4 description", Action: "update",
 				Data: &model.Data{OriginalData: "test41", RevisedData: "test42"}},
 		},
 		{
 			ID:     5,
 			Type:   model.Created,
-			Status: model.Processed,
+			Status: model.Deferred,
 			Entity: &model.Correction{ID: 5, Timestamp: time.Now(), UserID: 5, Object: "order5 description", Action: "update",
 				Data: &model.Data{OriginalData: "test51", RevisedData: "test52"}},
 		},
 		{
 			ID:     6,
 			Type:   model.Created,
-			Status: model.Processed,
+			Status: model.Deferred,
 			Entity: &model.Correction{ID: 5, Timestamp: time.Now(), UserID: 6, Object: "order6 description", Action: "update",
 				Data: &model.Data{OriginalData: "test61", RevisedData: "test62"}},
 		},
