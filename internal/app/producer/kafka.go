@@ -67,14 +67,14 @@ func (p *producer) Start(ctx context.Context) {
 					if err := p.sender.Send(&event); err != nil {
 						log.Printf("Error while sending event with ID = %d to Kafka: %v\n", event.ID, err)
 						p.workerPool.Submit(func() {
-							if err := p.updater.Update(event); err != nil {
+							if err := p.updater.Update(event.ID); err != nil {
 								log.Printf("Error while updating event with ID = %d: %v\n", event.ID, err)
 							}
 						})
 					} else {
 						log.Printf("Event with ID = %d was successfully sent to Kafka\n", event.ID)
 						p.workerPool.Submit(func() {
-							if err := p.cleaner.Clean(event); err != nil {
+							if err := p.cleaner.Clean(event.ID); err != nil {
 								log.Printf("Error while cleaning event with ID = %d: %v\n", event.ID, err)
 							}
 						})

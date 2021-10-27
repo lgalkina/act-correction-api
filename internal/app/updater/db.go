@@ -2,11 +2,10 @@ package updater
 
 import (
 	"github.com/lgalkina/act-correction-api/internal/app/repo"
-	"github.com/lgalkina/act-correction-api/internal/model"
 )
 
 type Updater interface {
-	Update(event model.CorrectionEvent) error
+	Update(eventID uint64) error
 }
 
 type updater struct {
@@ -19,6 +18,6 @@ func NewDbUpdater(repo repo.EventRepo) Updater {
 	}
 }
 
-func (u *updater) Update(event model.CorrectionEvent) error {
-	return u.repo.Unlock([]uint64{event.ID})
+func (u *updater) Update(eventID uint64) error {
+	return u.repo.Unlock([]uint64{eventID})
 }

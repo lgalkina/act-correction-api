@@ -2,11 +2,10 @@ package cleaner
 
 import (
 	"github.com/lgalkina/act-correction-api/internal/app/repo"
-	"github.com/lgalkina/act-correction-api/internal/model"
 )
 
 type Cleaner interface {
-	Clean(event model.CorrectionEvent) error
+	Clean(eventID uint64) error
 }
 
 type cleaner struct {
@@ -19,6 +18,6 @@ func NewDbCleaner(repo repo.EventRepo) Cleaner {
 	}
 }
 
-func (c *cleaner) Clean(event model.CorrectionEvent) error {
-	return c.repo.Remove([]uint64{event.ID})
+func (c *cleaner) Clean(eventID uint64) error {
+	return c.repo.Remove([]uint64{eventID})
 }
