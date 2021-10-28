@@ -56,28 +56,29 @@ func NewDbConsumer(
 func (c *consumer) Start(ctx context.Context) {
 	for i := uint64(0); i < c.n; i++ {
 		c.wg.Add(1)
-
-		go func() {
-			defer c.wg.Done()
-			ticker := time.NewTicker(c.timeout)
-			for {
-				select {
-				case <-ticker.C:
-					events, err := c.repo.Lock(c.batchSize)
-					if err != nil {
-						continue
-					}
-					for _, event := range events {
-						c.events <- event
-					}
-				case <- ctx.Done():
-					return
-				}
-			}
-		}()
+		go c.processEvents(ctx)
 	}
 }
 
 func (c *consumer) Close() {
 	c.wg.Wait()
+}
+
+func (c *consumer) processEvents(ctx context.Context) {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.timeout)
+	for {
+		select {
+		case <-ticker.C:
+			events, err := c.repo.Lock(c.batchSize)
+			if err != nil {
+				continue
+			}
+			for _, event := range events {
+				c.events <- event
+			}
+		case <- ctx.Done():
+			return
+		}
+	}
 }
