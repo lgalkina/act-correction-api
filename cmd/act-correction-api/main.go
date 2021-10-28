@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/lgalkina/act-correction-api/internal/app/retranslator"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,7 +22,10 @@ func main() {
 		ConsumeTimeout: time.Millisecond,
 	}
 
-	retranslator := retranslator.NewRetranslator(cfg)
+	retranslator, err := retranslator.NewRetranslator(cfg)
+	if err != nil {
+		log.Fatalf("Error while creating retranslator: %v", err)
+	}
 
 	ctx := context.Background()
 	retranslator.Start(ctx)

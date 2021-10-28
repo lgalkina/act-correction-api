@@ -2,6 +2,7 @@ package retranslator
 
 import (
 	"context"
+	"errors"
 	"github.com/lgalkina/act-correction-api/internal/app/cleaner"
 	"github.com/lgalkina/act-correction-api/internal/app/updater"
 	"github.com/lgalkina/act-correction-api/internal/model"
@@ -41,7 +42,13 @@ type retranslator struct {
 	cancelCtx  context.CancelFunc
 }
 
-func NewRetranslator(cfg Config) Retranslator {
+func NewRetranslator(cfg Config) (Retranslator, error) {
+
+	err := validateConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	events := make(chan model.CorrectionEvent, cfg.ChannelSize)
 	workerPool := workerpool.New(cfg.WorkerCount)
 
@@ -67,7 +74,7 @@ func NewRetranslator(cfg Config) Retranslator {
 		consumer:   consumer,
 		producer:   producer,
 		workerPool: workerPool,
-	}
+	}, nil
 }
 
 func (r *retranslator) Start(ctx context.Context) {
@@ -82,4 +89,23 @@ func (r *retranslator) Close() {
 	r.consumer.Close()
 	r.producer.Close()
 	r.workerPool.StopWait()
+}
+
+func validateConfig(cfg Config) error {
+	if cfg.ConsumerCount < 1 {
+		return errors.New("ConsumerCount can't be less than 1")
+	}
+	if cfg.ProducerCount < 1 {
+		return errors.New("ProducerCount can't be less than 1")
+	}
+	if cfg.WorkerCount < 1 {
+		return errors.New("WorkerCount can't be less than 1")
+	}
+	if cfg.ConsumeSize < 1 {
+		return errors.New("ConsumeSize can't be less than 1")
+	}
+	if cfg.ConsumeTimeout < 1 {
+		return errors.New("ConsumeTimeout can't be less than 1")
+	}
+	return nil
 }
