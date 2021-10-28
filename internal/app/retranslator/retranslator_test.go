@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/lgalkina/act-correction-api/internal/mocks"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStart(t *testing.T) {
@@ -20,7 +21,9 @@ func TestStart(t *testing.T) {
 	repo.EXPECT().Lock(gomock.Any()).AnyTimes()
 	sender := mocks.NewMockEventSender(ctrl)
 
-	retranslator := NewRetranslator(createRetranslatorConfig(2, time.Second, repo, sender))
+	retranslator, err := NewRetranslator(createRetranslatorConfig(2, time.Second, repo, sender))
+	assert.Nil(t, err)
+
 	retranslator.Start(context.Background())
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
@@ -37,7 +40,9 @@ func TestProducerSendSuccess(t *testing.T) {
 
 	events := createEvents()
 	var consumeSize = uint64(len(events) / 2)
-	retranslator := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+
+	retranslator, err := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+	assert.Nil(t, err)
 
 	// lock возвращает данные дважды
 	setEventsLockOrder(consumeSize, repo, events)
@@ -60,7 +65,9 @@ func TestProducerSendRemoveError(t *testing.T) {
 
 	events := createEvents()
 	var consumeSize = uint64(len(events) / 2)
-	retranslator := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+
+	retranslator, err := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+	assert.Nil(t, err)
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events,nil)
@@ -82,7 +89,9 @@ func TestProducerSendError(t *testing.T) {
 
 	events := createEvents()
 	var consumeSize = uint64(len(events) / 2)
-	retranslator := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+
+	retranslator, err := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+	assert.Nil(t, err)
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
@@ -104,7 +113,9 @@ func TestProducerSendUnlockError(t *testing.T) {
 
 	events := createEvents()
 	var consumeSize = uint64(len(events) / 2)
-	retranslator := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+
+	retranslator, err := NewRetranslator(createRetranslatorConfig(consumeSize, time.Second, repo, sender))
+	assert.Nil(t, err)
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
