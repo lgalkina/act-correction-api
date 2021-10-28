@@ -87,20 +87,18 @@ func (r *retranslator) Close() {
 }
 
 func validateConfig(cfg Config) error {
-	if cfg.ConsumerCount < 1 {
-		return errors.New("ConsumerCount can't be less than 1")
+	switch {
+		case cfg.ConsumerCount < 1:
+			return errors.New("ConsumerCount can't be less than 1")
+		case cfg.ProducerCount < 1:
+			return errors.New("ProducerCount can't be less than 1")
+		case cfg.WorkerCount < 1:
+			return errors.New("WorkerCount can't be less than 1")
+		case cfg.ConsumeSize < 1:
+			return errors.New("ConsumeSize can't be less than 1")
+		case cfg.ConsumeTimeout < 1:
+			return errors.New("ConsumeTimeout can't be less than 1")
+	default:
+		return nil
 	}
-	if cfg.ProducerCount < 1 {
-		return errors.New("ProducerCount can't be less than 1")
-	}
-	if cfg.WorkerCount < 1 {
-		return errors.New("WorkerCount can't be less than 1")
-	}
-	if cfg.ConsumeSize < 1 {
-		return errors.New("ConsumeSize can't be less than 1")
-	}
-	if cfg.ConsumeTimeout < 1 {
-		return errors.New("ConsumeTimeout can't be less than 1")
-	}
-	return nil
 }

@@ -61,35 +61,45 @@ func NewKafkaProducer(
 func (p *producer) Start() {
 	for i := uint64(0); i < p.n; i++ {
 		p.wg.Add(1)
-		go func() {
-			defer p.wg.Done()
-			for {
-				select {
-				case event := <-p.events:
-					if err := p.sender.Send(&event); err != nil {
-						log.Printf("Error while sending event with ID = %d to Kafka: %v\n", event.ID, err)
-						p.workerPool.Submit(func() {
-							if err := p.updater.Update(event.ID); err != nil {
-								log.Printf("Error while updating event with ID = %d: %v\n", event.ID, err)
-							}
-						})
-					} else {
-						log.Printf("Event with ID = %d was successfully sent to Kafka\n", event.ID)
-						p.workerPool.Submit(func() {
-							if err := p.cleaner.Clean(event.ID); err != nil {
-								log.Printf("Error while cleaning event with ID = %d: %v\n", event.ID, err)
-							}
-						})
-					}
-				case <-p.done:
-					return
-				}
-			}
-		}()
+		go p.processEvents()
 	}
 }
 
 func (p *producer) Close() {
 	close(p.done)
 	p.wg.Wait()
+}
+
+func (p *producer) processEvents() {
+	defer p.wg.Done()
+	for {
+		select {
+		case event := <-p.events:
+			if err := p.sender.Send(&event); err != nil {
+				p.processSendError(event, err)
+			} else {
+				p.processSendSuccess(event)
+			}
+		case <-p.done:
+			return
+		}
+	}
+}
+
+func (p *producer) processSendSuccess(event model.CorrectionEvent) {
+	log.Printf("Event with ID = %d was successfully sent to Kafka\n", event.ID)
+	p.workerPool.Submit(func() {
+		if err := p.cleaner.Clean(event.ID); err != nil {
+			log.Printf("Error while cleaning event with ID = %d: %v\n", event.ID, err)
+		}
+	})
+}
+
+func (p *producer) processSendError(event model.CorrectionEvent, err error) {
+	log.Printf("Error while sending event with ID = %d to Kafka: %v\n", event.ID, err)
+	p.workerPool.Submit(func() {
+		if err := p.updater.Update(event.ID); err != nil {
+			log.Printf("Error while updating event with ID = %d: %v\n", event.ID, err)
+		}
+	})
 }
