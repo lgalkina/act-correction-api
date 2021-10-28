@@ -40,26 +40,7 @@ func (u *updater) Start(ctx context.Context) {
 			select {
 			case eventID, ok := <-u.eventIDs:
 				if ok {
-					eventIDs := []uint64{eventID}
-				forLabel:
-					for {
-						select {
-						case id := <-u.eventIDs:
-							// if there is more id immediately available, we add them
-							eventIDs = append(eventIDs, id)
-							if len(eventIDs) >= updateBatchSize {
-								break forLabel
-							}
-						default:
-							// else we move on without blocking
-							break forLabel
-						}
-					}
-					u.workerPool.Submit(func() {
-						if err := u.Update(eventIDs); err != nil {
-							log.Printf("Error while updating events: %v\n", err)
-						}
-					})
+					u.processEventID(eventID)
 				} else {
 					return
 				}
@@ -80,4 +61,27 @@ func (u *updater) Add(eventID uint64) {
 
 func (u *updater) Update(eventIDs []uint64) error {
 	return u.repo.Unlock(eventIDs)
+}
+
+func (u *updater) processEventID(eventID uint64) {
+	eventIDs := []uint64{eventID}
+	forLabel:
+		for {
+			select {
+			case id := <-u.eventIDs:
+				// if there is more id immediately available, we add them
+				eventIDs = append(eventIDs, id)
+				if len(eventIDs) >= updateBatchSize {
+					break forLabel
+				}
+			default:
+				// else we move on without blocking
+				break forLabel
+			}
+		}
+		u.workerPool.Submit(func() {
+			if err := u.Update(eventIDs); err != nil {
+				log.Printf("Error while updating events: %v\n", err)
+			}
+		})
 }
