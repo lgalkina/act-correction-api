@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"github.com/lgalkina/act-correction-api/internal/model"
 	"sync"
 	"time"
@@ -9,7 +10,7 @@ import (
 )
 
 type Consumer interface {
-	Start()
+	Start(ctx context.Context)
 	Close()
 }
 
@@ -22,7 +23,6 @@ type consumer struct {
 	batchSize uint64
 	timeout   time.Duration
 
-	done chan bool
 	wg   *sync.WaitGroup
 }
 
@@ -42,7 +42,6 @@ func NewDbConsumer(
 	events chan<- model.CorrectionEvent) Consumer {
 
 	wg := &sync.WaitGroup{}
-	done := make(chan bool)
 
 	return &consumer{
 		n:         n,
@@ -51,23 +50,21 @@ func NewDbConsumer(
 		repo:      repo,
 		events:    events,
 		wg:        wg,
-		done:      done,
 	}
 }
 
-func (c *consumer) Start() {
+func (c *consumer) Start(ctx context.Context) {
 	for i := uint64(0); i < c.n; i++ {
 		c.wg.Add(1)
-		go c.processEvents()
+		go c.processEvents(ctx)
 	}
 }
 
 func (c *consumer) Close() {
-	close(c.done)
 	c.wg.Wait()
 }
 
-func (c *consumer) processEvents() {
+func (c *consumer) processEvents(ctx context.Context) {
 	defer c.wg.Done()
 	ticker := time.NewTicker(c.timeout)
 	for {
@@ -80,7 +77,7 @@ func (c *consumer) processEvents() {
 			for _, event := range events {
 				c.events <- event
 			}
-		case <-c.done:
+		case <- ctx.Done():
 			return
 		}
 	}

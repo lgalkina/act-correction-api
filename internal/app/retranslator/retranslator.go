@@ -1,6 +1,7 @@
 package retranslator
 
 import (
+	"context"
 	"errors"
 	"github.com/lgalkina/act-correction-api/internal/app/cleaner"
 	"github.com/lgalkina/act-correction-api/internal/app/updater"
@@ -15,7 +16,7 @@ import (
 )
 
 type Retranslator interface {
-	Start()
+	Start(ctx context.Context)
 	Close()
 }
 
@@ -38,6 +39,7 @@ type retranslator struct {
 	consumer   consumer.Consumer
 	producer   producer.Producer
 	workerPool *workerpool.WorkerPool
+	cancelCtx  context.CancelFunc
 }
 
 func NewRetranslator(cfg Config) (Retranslator, error) {
@@ -75,12 +77,15 @@ func NewRetranslator(cfg Config) (Retranslator, error) {
 	}, nil
 }
 
-func (r *retranslator) Start() {
-	r.producer.Start()
-	r.consumer.Start()
+func (r *retranslator) Start(ctx context.Context) {
+	ctx, r.cancelCtx = context.WithCancel(ctx)
+
+	r.producer.Start(ctx)
+	r.consumer.Start(ctx)
 }
 
 func (r *retranslator) Close() {
+	r.cancelCtx()
 	r.consumer.Close()
 	r.producer.Close()
 	r.workerPool.StopWait()
@@ -88,16 +93,16 @@ func (r *retranslator) Close() {
 
 func validateConfig(cfg Config) error {
 	switch {
-		case cfg.ConsumerCount < 1:
-			return errors.New("ConsumerCount can't be less than 1")
-		case cfg.ProducerCount < 1:
-			return errors.New("ProducerCount can't be less than 1")
-		case cfg.WorkerCount < 1:
-			return errors.New("WorkerCount can't be less than 1")
-		case cfg.ConsumeSize < 1:
-			return errors.New("ConsumeSize can't be less than 1")
-		case cfg.ConsumeTimeout < 1:
-			return errors.New("ConsumeTimeout can't be less than 1")
+	case cfg.ConsumerCount < 1:
+		return errors.New("ConsumerCount can't be less than 1")
+	case cfg.ProducerCount < 1:
+		return errors.New("ProducerCount can't be less than 1")
+	case cfg.WorkerCount < 1:
+		return errors.New("WorkerCount can't be less than 1")
+	case cfg.ConsumeSize < 1:
+		return errors.New("ConsumeSize can't be less than 1")
+	case cfg.ConsumeTimeout < 1:
+		return errors.New("ConsumeTimeout can't be less than 1")
 	default:
 		return nil
 	}
