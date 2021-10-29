@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/lgalkina/act-correction-api/internal/model"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -207,7 +208,7 @@ func createEvents() []model.CorrectionEvent {
 			ID:     6,
 			Type:   model.Created,
 			Status: model.Deferred,
-			Entity: &model.Correction{ID: 5, Timestamp: time.Now(), UserID: 6, Object: "order6 description", Action: "update",
+			Entity: &model.Correction{ID: 6, Timestamp: time.Now(), UserID: 6, Object: "order6 description", Action: "update",
 				Data: &model.Data{OriginalData: "test61", RevisedData: "test62"}},
 		},
 	}
