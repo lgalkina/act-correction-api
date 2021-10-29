@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/lgalkina/act-correction-api/internal/mocks"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestStart(t *testing.T) {
