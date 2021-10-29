@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"context"
 	"errors"
 	"github.com/gammazero/workerpool"
 	"github.com/golang/mock/gomock"
@@ -32,18 +33,22 @@ func TestRemove(t *testing.T) {
 	repo.EXPECT().Remove(gomock.Eq([]uint64{testEvent.ID})).Return(nil).Times(1)
 
 	events := make(chan model.CorrectionEvent)
+	workerpool := workerpool.New(1)
 
 	producer := NewKafkaProducer(
 		1,
 		sender,
 		events,
-		workerpool.New(1),
-		updater.NewDbUpdater(repo),
-		cleaner.NewDbCleaner(repo))
+		updater.NewDbUpdater(repo, workerpool, 0),
+		cleaner.NewDbCleaner(repo, workerpool, 0))
 
-	producer.Start()
+	cancelCtx, cancelCtxFunc := createCtx()
+
+	producer.Start(cancelCtx)
 	events <- testEvent
 	time.Sleep(time.Second)
+
+	cancelCtxFunc()
 	producer.Close()
 }
 
@@ -59,17 +64,26 @@ func TestUnlock(t *testing.T) {
 	repo.EXPECT().Unlock(gomock.Eq([]uint64{testEvent.ID})).Return(nil).Times(1)
 
 	events := make(chan model.CorrectionEvent)
+	workerpool := workerpool.New(1)
 
 	producer := NewKafkaProducer(
 		1,
 		sender,
 		events,
-		workerpool.New(1),
-		updater.NewDbUpdater(repo),
-		cleaner.NewDbCleaner(repo))
+		updater.NewDbUpdater(repo, workerpool, 0),
+		cleaner.NewDbCleaner(repo, workerpool, 0))
 
-	producer.Start()
+	cancelCtx, cancelCtxFunc := createCtx()
+
+	producer.Start(cancelCtx)
 	events <- testEvent
 	time.Sleep(time.Second)
+
+	cancelCtxFunc()
 	producer.Close()
+}
+
+func createCtx() (context.Context, context.CancelFunc) {
+	ctx := context.Background()
+	return context.WithCancel(ctx)
 }

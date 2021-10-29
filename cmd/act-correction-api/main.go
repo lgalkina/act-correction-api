@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/lgalkina/act-correction-api/internal/app/retranslator"
 	"log"
 	"os"
@@ -26,7 +27,8 @@ func main() {
 		log.Fatalf("Error while creating retranslator: %v", err)
 	}
 
-	retranslator.Start()
+	ctx := context.Background()
+	retranslator.Start(ctx)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
