@@ -48,11 +48,14 @@ func TestProducerSendSuccess(t *testing.T) {
 	// lock возвращает данные дважды
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events,nil)
-	setEventsRemove(int(consumeSize*2), repo, events, nil)
+	eventIDs := setEventsRemove(repo, events, nil)
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func TestProducerSendRemoveError(t *testing.T) {
@@ -72,11 +75,14 @@ func TestProducerSendRemoveError(t *testing.T) {
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events,nil)
-	setEventsRemove(int(consumeSize*2), repo, events, errors.New("remove error"))
+	eventIDs := setEventsRemove(repo, events, errors.New("remove error"))
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func TestProducerSendError(t *testing.T) {
@@ -96,11 +102,15 @@ func TestProducerSendError(t *testing.T) {
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
-	setEventsUnlock(int(consumeSize*2), repo, events, nil)
 
-	retranslator.Start(context.Background())
+	eventIDs := setEventsUnlock(repo, events, nil)
+
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func TestProducerSendUnlockError(t *testing.T) {
@@ -120,11 +130,14 @@ func TestProducerSendUnlockError(t *testing.T) {
 
 	setEventsLockOrder(consumeSize, repo, events)
 	setEventsSend(int(consumeSize*2), sender, events, errors.New("send error"))
-	setEventsUnlock(int(consumeSize*2), repo, events, errors.New("unlock error"))
+	eventIDs := setEventsUnlock(repo, events, errors.New("unlock error"))
 
-	retranslator.Start(context.Background())
+	ctx := context.Background()
+	retranslator.Start(ctx)
 	time.Sleep(time.Second * 2)
 	retranslator.Close()
+
+	assert.Equal(t, len(eventIDs), 0)
 }
 
 func setEventsLockOrder(consumeSize uint64, repo *mocks.MockEventRepo, events []model.CorrectionEvent) {
@@ -141,16 +154,30 @@ func setEventsSend(eventsNum int, sender *mocks.MockEventSender, events []model.
 	}
 }
 
-func setEventsRemove(eventsNum int, repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) {
-	for i := 0; i < eventsNum; i++ {
-		repo.EXPECT().Remove(gomock.Eq([]uint64{events[i].ID})).Return(error).Times(1)
+func setEventsRemove(repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) map[uint64]bool {
+	eventIDs := make(map[uint64]bool, len(events))
+	for _, event := range events {
+		eventIDs[event.ID] = true
 	}
+	repo.EXPECT().Remove(gomock.Any()).Do(func(ids []uint64) {
+		for _, id := range ids {
+			delete(eventIDs, id)
+		}
+	}).Return(error).AnyTimes()
+	return eventIDs
 }
 
-func setEventsUnlock(eventsNum int, repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) {
-	for i := 0; i < eventsNum; i++ {
-		repo.EXPECT().Unlock(gomock.Eq([]uint64{events[i].ID})).Return(error).Times(1)
+func setEventsUnlock(repo *mocks.MockEventRepo, events []model.CorrectionEvent, error interface{}) map[uint64]bool {
+	eventIDs := make(map[uint64]bool, len(events))
+	for _, event := range events {
+		eventIDs[event.ID] = true
 	}
+	repo.EXPECT().Unlock(gomock.Any()).Do(func(ids []uint64) {
+		for _, id := range ids {
+			delete(eventIDs, id)
+		}
+	}).Return(error).AnyTimes()
+	return eventIDs
 }
 
 func createRetranslatorConfig(consumeSize uint64, consumeTimeout time.Duration,
