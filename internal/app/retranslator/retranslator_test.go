@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/lgalkina/act-correction-api/internal/mocks"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStart(t *testing.T) {
@@ -234,7 +235,7 @@ func createEvents() []model.CorrectionEvent {
 			ID:     6,
 			Type:   model.Created,
 			Status: model.Deferred,
-			Entity: &model.Correction{ID: 5, Timestamp: time.Now(), UserID: 6, Object: "order6 description", Action: "update",
+			Entity: &model.Correction{ID: 6, Timestamp: time.Now(), UserID: 6, Object: "order6 description", Action: "update",
 				Data: &model.Data{OriginalData: "test61", RevisedData: "test62"}},
 		},
 	}
