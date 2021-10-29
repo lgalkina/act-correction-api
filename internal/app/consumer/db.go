@@ -1,7 +1,7 @@
 package consumer
 
 import (
-	"github.com/lgalkina/act-correction-api/internal/model/activity"
+	"github.com/lgalkina/act-correction-api/internal/model"
 	"sync"
 	"time"
 
@@ -15,7 +15,7 @@ type Consumer interface {
 
 type consumer struct {
 	n      uint64
-	events chan<- activity.CorrectionEvent
+	events chan<- model.CorrectionEvent
 
 	repo repo.EventRepo
 
@@ -28,7 +28,7 @@ type consumer struct {
 
 type Config struct {
 	n         uint64
-	events    chan<- activity.CorrectionEvent
+	events    chan<- model.CorrectionEvent
 	repo      repo.EventRepo
 	batchSize uint64
 	timeout   time.Duration
@@ -39,7 +39,7 @@ func NewDbConsumer(
 	batchSize uint64,
 	consumeTimeout time.Duration,
 	repo repo.EventRepo,
-	events chan<- activity.CorrectionEvent) Consumer {
+	events chan<- model.CorrectionEvent) Consumer {
 
 	wg := &sync.WaitGroup{}
 	done := make(chan bool)
@@ -58,29 +58,30 @@ func NewDbConsumer(
 func (c *consumer) Start() {
 	for i := uint64(0); i < c.n; i++ {
 		c.wg.Add(1)
-
-		go func() {
-			defer c.wg.Done()
-			ticker := time.NewTicker(c.timeout)
-			for {
-				select {
-				case <-ticker.C:
-					events, err := c.repo.Lock(c.batchSize)
-					if err != nil {
-						continue
-					}
-					for _, event := range events {
-						c.events <- event
-					}
-				case <-c.done:
-					return
-				}
-			}
-		}()
+		go c.processEvents()
 	}
 }
 
 func (c *consumer) Close() {
 	close(c.done)
 	c.wg.Wait()
+}
+
+func (c *consumer) processEvents() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.timeout)
+	for {
+		select {
+		case <-ticker.C:
+			events, err := c.repo.Lock(c.batchSize)
+			if err != nil {
+				continue
+			}
+			for _, event := range events {
+				c.events <- event
+			}
+		case <-c.done:
+			return
+		}
+	}
 }

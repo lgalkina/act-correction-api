@@ -1,9 +1,9 @@
 package sender
 
 import (
-	"github.com/lgalkina/act-correction-api/internal/model/activity"
+	"github.com/lgalkina/act-correction-api/internal/model"
 )
 
 type EventSender interface {
-	Send(subdomain *activity.CorrectionEvent) error
+	Send(subdomain *model.CorrectionEvent) error
 }

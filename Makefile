@@ -1,6 +1,6 @@
 .PHONY: build
 build:
-	go build cmd/omp-demo-api/main.go
+	go build cmd/act-correction-api/main.go
 
 .PHONY: test
 test:
